@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Dominó 4 Jugadores con Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        html, body {
+            width: 100%;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #120b08;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .domino-table {
+            background-color: #2c1810;
+            background-image: 
+                radial-gradient(#3d2317 15%, transparent 16%),
+                radial-gradient(#1f100a 15%, transparent 16%);
+            background-size: 44px 44px;
+            background-position: 0 0, 22px 22px;
+            box-shadow: inset 0 0 90px rgba(0,0,0,0.8);
+        }
+
+        .domino-tile {
+            background: linear-gradient(135deg, #fffdfa, #ece5d8);
+            border: 2px solid #a39683;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.9);
+            transition: transform 0.1s ease;
+        }
+        .domino-tile:active {
+            transform: scale(0.95);
+        }
+
+        @keyframes burbujaChat {
+            0% { transform: translateY(0) scale(0.6); opacity: 0; }
+            20% { transform: translateY(-15px) scale(1.05); opacity: 1; }
+            80% { transform: translateY(-40px) scale(1); opacity: 1; }
+            100% { transform: translateY(-65px) scale(0.9); opacity: 0; }
+        }
+        .chat-bubble {
+            animation: burbujaChat 2.2s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="flex flex-col justify-between domino-table relative">
+
+    <!-- HUD SUPERIOR -->
+    <header class="relative z-20 px-3 pt-3 pb-2 flex items-center justify-between bg-black/50 backdrop-blur-md border-b border-amber-900/40">
+        <div class="flex items-center gap-2">
+            <span class="text-2xl">🎲</span>
+            <div>
+                <h1 class="text-xs font-black text-amber-100 tracking-wider">DOMINÓ X4 FAMILIAR</h1>
+                <p id="current-turn-label" class="text-xs font-bold text-amber-300">Turno: Jugador 1</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow border border-indigo-400">
+                💬 Frases
+            </button>
+            <button onclick="passTurn()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow border border-amber-500">
+                Pasar (<span id="pozo-count">0</span>)
+            </button>
+        </div>
+    </header>
+
+    <!-- VENTANA DE INTERMEDIO (Para pasar el celular sin que los demás vean las fichas) -->
+    <div id="pass-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-6 text-center">
+        <span class="text-6xl mb-3">📱</span>
+        <h2 id="pass-title" class="text-2xl font-black text-amber-300 mb-2">¡Pásale el celular al Jugador X!</h2>
+        <p class="text-slate-300 text-sm mb-6">Asegúrate de que nadie más esté mirando la pantalla.</p>
+        <button onclick="revelarMano()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-lg px-8 py-3.5 rounded-full border-4 border-emerald-200 shadow-2xl">
+            👁️ YA LO TENGO, VER CARTAS
+        </button>
+    </div>
+
+    <!-- MENÚ FLOTANTE DE FRASES CORTAS -->
+    <div id="chat-menu" class="fixed inset-x-4 bottom-24 bg-slate-900/95 border-2 border-indigo-500 rounded-3xl p-4 z-40 hidden shadow-2xl backdrop-blur-md">
+        <div class="flex justify-between items-center mb-3">
+            <span class="text-xs font-black text-indigo-300 uppercase tracking-wider">Frases Rápidas para la Familia</span>
+            <button onclick="toggleChatMenu()" class="text-white font-black text-sm px-2">✕</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="enviarFrase('¡Te tranqué! 😈')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Te tranqué! 😈</button>
+            <button onclick="enviarFrase('¡Cuidado que voy! 🔥')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Cuidado que voy! 🔥</button>
+            <button onclick="enviarFrase('¡Ay, mi madre! 😱')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Ay, mi madre! 😱</button>
+            <button onclick="enviarFrase('Juega ya hombre 😂')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">Juega ya hombre 😂</button>
+            <button onclick="enviarFrase('¡Esa ficha la tenía yo! 🙄')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Esa ficha la tenía yo! 🙄</button>
+            <button onclick="enviarFrase('¡Se armó el tranque! 🎲')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Se armó el tranque! 🎲</button>
+        </div>
+    </div>
+
+    <!-- TABLERO / MESA DE JUEGO -->
+    <main class="flex-1 flex flex-col items-center justify-center px-3 relative z-10 overflow-hidden">
+        
+        <!-- Burbuja de Chat Activa en Mesa -->
+        <div id="chat-bubble-container" class="absolute top-4 z-30 flex justify-center w-full"></div>
+
+        <div id="game-message" class="absolute top-12 bg-amber-950/90 border border-amber-600 text-amber-200 font-black text-[11px] px-3.5 py-1 rounded-full shadow-lg z-30">
+            ¡Toca una ficha válida para jugar!
+        </div>
+
+        <div id="board-container" class="w-full h-52 bg-black/40 rounded-3xl border-2 border-amber-950/60 flex items-center justify-center gap-2 overflow-x-auto no-scrollbar px-6 shadow-inner">
+            <span class="text-amber-200/50 text-xs font-black">Mesa vacía. ¡A jugar!</span>
+        </div>
+
+        <div class="mt-3 bg-black/60 backdrop-blur-xs px-4 py-1 rounded-full border border-amber-500/30 text-amber-300 font-black text-xs">
+            Extremos: <span id="board-ends" class="text-white">(- / -)</span>
+        </div>
+    </main>
+
+    <!-- MANO DEL JUGADOR ACTUAL -->
+    <footer class="relative z-20 bg-slate-950/95 backdrop-blur-md border-t-2 border-amber-900/60 pt-3 pb-5 px-3 rounded-t-3xl shadow-2xl">
+        <div class="flex justify-between items-center mb-2 px-1">
+            <span id="player-name-label" class="text-xs font-black text-amber-200 uppercase">Tus Fichas (Jugador 1)</span>
+            <span class="text-[10px] font-bold text-slate-400">Toca para colocar</span>
+        </div>
+        <div id="player-hand" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 min-h-[75px] justify-start sm:justify-center">
+            <!-- Generado por JS -->
+        </div>
+    </footer>
+
+    <!-- MODAL DE VICTORIA -->
+    <div id="win-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-6 text-center">
+        <span class="text-6xl mb-3 animate-bounce">🏆</span>
+        <h2 id="win-title" class="text-2xl font-black text-amber-300 mb-2">¡JUGADOR 1 GANA!</h2>
+        <p id="win-desc" class="text-white text-sm mb-6">Se quedó sin fichas.</p>
+        <button onclick="resetGame()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-base px-8 py-3 rounded-full border-4 border-emerald-200 shadow-2xl">
+            🔄 NUEVA PARTIDA
+        </button>
+    </div>
+
+    <script>
+        let gameState = {
+            turn: 1, // 1, 2, 3 o 4
+            board: [],
+            hands: { 1: [], 2: [], 3: [], 4: [] },
+            pozo: [],
+            gameOver: false
+        };
+
+        function generarFichas() {
+            const fichas = [];
+            for (let i = 0; i <= 6; i++) {
+                for (let j = i; j <= 6; j++) {
+                    fichas.push({ a: i, b: j });
+                }
+            }
+            return fichas.sort(() => Math.random() - 0.5);
+        }
+
+        function iniciarJuego() {
+            const pool = generarFichas();
+            gameState.hands[1] = pool.splice(0, 7);
+            gameState.hands[2] = pool.splice(0, 7);
+            gameState.hands[3] = pool.splice(0, 7);
+            gameState.hands[4] = pool.splice(0, 7);
+            gameState.pozo = pool;
+            gameState.board = [];
+            gameState.turn = 1;
+            gameState.gameOver = false;
+            document.getElementById('win-modal').classList.add('hidden');
+            
+            mostrarPantallaEspera(1);
+        }
+
+        function mostrarPantallaEspera(jugadorNum) {
+            document.getElementById('pass-title').innerText = `¡Pásale el celular al Jugador ${jugadorNum}!`;
+            document.getElementById('pass-screen').classList.remove('hidden');
+        }
+
+        function revelarMano() {
+            document.getElementById('pass-screen').classList.add('hidden');
+            renderAll();
+        }
+
+        function avisar(msg) {
+            document.getElementById('game-message').innerText = msg;
+        }
+
+        function renderDots(num) {
+            let dotsHtml = '';
+            const positions = {
+                0: [],
+                1: ['col-start-2 row-start-2'],
+                2: ['col-start-1 row-start-1', 'col-start-3 row-start-3'],
+                3: ['col-start-1 row-start-1', 'col-start-2 row-start-2', 'col-start-3 row-start-3'],
+                4: ['col-start-1 row-start-1', 'col-start-3 row-start-1', 'col-start-1 row-start-3', 'col-start-3 row-start-3'],
+                5: ['col-start-1 row-start-1', 'col-start-3 row-start-1', 'col-start-2 row-start-2', 'col-start-1 row-start-3', 'col-start-3 row-start-3'],
+                6: ['col-start-1 row-start-1', 'col-start-3 row-start-1', 'col-start-1 row-start-2', 'col-start-3 row-start-2', 'col-start-1 row-start-3', 'col-start-3 row-start-3']
+            };
+            positions[num].forEach(pos => {
+                dotsHtml += `<div class="w-1.5 h-1.5 bg-slate-900 rounded-full ${pos}"></div>`;
+            });
+            return `<div class="grid grid-cols-3 grid-rows-3 w-7 h-7 p-0.5 items-center justify-items-center">${dotsHtml}</div>`;
+        }
+
+        function jugarFicha(index) {
+            if (gameState.gameOver) return;
+            const mano = gameState.hands[gameState.turn];
+            const ficha = mano[index];
+
+            if (gameState.board.length === 0) {
+                gameState.board.push(ficha);
+                mano.splice(index, 1);
+                verificarVictoria();
+                if (!gameState.gameOver) avanzarTurno();
+                return;
+            }
+
+            const extremoIzq = gameState.board[0].a;
+            const extremoDer = gameState.board[gameState.board.length - 1].b;
+            let jugadaValida = false;
+
+            if (ficha.a === extremoIzq || ficha.b === extremoIzq) {
+                if (ficha.b === extremoIzq) {
+                    gameState.board.unshift({ a: ficha.a, b: ficha.b });
+                } else {
+                    gameState.board.unshift({ a: ficha.b, b: ficha.a });
+                }
+                jugadaValida = true;
+            } else if (ficha.a === extremoDer || ficha.b === extremoDer) {
+                if (ficha.a === extremoDer) {
+                    gameState.board.push({ a: ficha.a, b: ficha.b });
+                } else {
+                    gameState.board.push({ a: ficha.b, b: ficha.a });
+                }
+                jugadaValida = true;
+            }
+
+            if (jugadaValida) {
+                mano.splice(index, 1);
+                verificarVictoria();
+                if (!gameState.gameOver) avanzarTurno();
+            } else {
+                avisar("⚠️ Esa ficha no coincide con los extremos.");
+            }
+        }
+
+        function passTurn() {
+            if (gameState.pozo.length > 0) {
+                const robada = gameState.pozo.pop();
+                gameState.hands[gameState.turn].push(robada);
+                avisar(`Jugador ${gameState.turn} robó del pozo.`);
+                renderAll();
+            } else {
+                avisar(`Jugador ${gameState.turn} pasó.`);
+                avanzarTurno();
+            }
+        }
+
+        function avanzarTurno() {
+            gameState.turn = gameState.turn >= 4 ? 1 : gameState.turn + 1;
+            mostrarPantallaEspera(gameState.turn);
+        }
+
+        function verificarVictoria() {
+            for (let i = 1; i <= 4; i++) {
+                if (gameState.hands[i].length === 0) {
+                    terminarPartida(i);
+                    return;
+                }
+            }
+        }
+
+        function terminarPartida(jugador) {
+            gameState.gameOver = true;
+            document.getElementById('win-title').innerText = `¡JUGADOR ${jugador} GANA!`;
+            document.getElementById('win-desc').innerText = `Se quedó sin fichas en la mano.`;
+            document.getElementById('win-modal').classList.remove('hidden');
+        }
+
+        function toggleChatMenu() {
+            const menu = document.getElementById('chat-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        function enviarFrase(texto) {
+            toggleChatMenu();
+            const container = document.getElementById('chat-bubble-container');
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble bg-indigo-600 text-white font-black text-xs px-4 py-2 rounded-2xl shadow-2xl border-2 border-indigo-300';
+            bubble.innerText = `Jugador ${gameState.turn}: ${texto}`;
+            container.innerHTML = '';
+            container.appendChild(bubble);
+            setTimeout(() => bubble.remove(), 2200);
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('board-container');
+            if (gameState.board.length === 0) {
+                boardEl.innerHTML = `<span class="text-amber-200/50 text-xs font-black">Mesa vacía. Juega tu primera ficha.</span>`;
+                document.getElementById('board-ends').innerText = "(- / -)";
+                return;
+            }
+
+            boardEl.innerHTML = '';
+            gameState.board.forEach(f => {
+                boardEl.innerHTML += `
+                    <div class="domino-tile flex flex-col items-center justify-between p-1 rounded-xl shrink-0 w-9 h-18 border border-amber-900/40">
+                        ${renderDots(f.a)}
+                        <div class="w-full h-[1px] bg-amber-900/30"></div>
+                        ${renderDots(f.b)}
+                    </div>
+                `;
+            });
+
+            const izq = gameState.board[0].a;
+            const der = gameState.board[gameState.board.length - 1].b;
+            document.getElementById('board-ends').innerText = `[${izq}] y [${der}]`;
+        }
+
+        function renderHand() {
+            const handEl = document.getElementById('player-hand');
+            const mano = gameState.hands[gameState.turn];
+            handEl.innerHTML = '';
+
+            mano.forEach((f, idx) => {
+                handEl.innerHTML += `
+                    <div onclick="jugarFicha(${idx})" 
+                         class="domino-tile flex flex-col items-center justify-between p-1 rounded-2xl cursor-pointer w-11 h-22 border border-amber-900/50 active:scale-95 shadow-lg shrink-0">
+                        ${renderDots(f.a)}
+                        <div class="w-full h-[1px] bg-amber-900/40"></div>
+                        ${renderDots(f.b)}
+                    </div>
+                `;
+            });
+
+            document.getElementById('player-name-label').innerText = `Tus Fichas (Jugador ${gameState.turn})`;
+            document.getElementById('current-turn-label').innerText = `Turno: Jugador ${gameState.turn}`;
+            document.getElementById('pozo-count').innerText = gameState.pozo.length;
+        }
+
+        function renderAll() {
+            renderBoard();
+            renderHand();
+        }
+
+        function resetGame() {
+            iniciarJuego();
+        }
+
+        iniciarJuego();
+    </script>
+</body>
+</html>
