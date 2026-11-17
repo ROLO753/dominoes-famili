@@ -95,12 +95,12 @@
         <p class="text-slate-400 text-xs mb-6">Elige tu asiento (Jugador) en este dispositivo:</p>
         
         <div class="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
-            <button onclick="unirseComo(1)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 1 (Eq. 1)</button>
-            <button onclick="unirseComo(2)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 2 (Eq. 2)</button>
-            <button onclick="unirseComo(3)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 3 (Eq. 1)</button>
-            <button onclick="unirseComo(4)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 4 (Eq. 2)</button>
+            <button onclick="unirseComo(1)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 1</button>
+            <button onclick="unirseComo(2)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 2</button>
+            <button onclick="unirseComo(3)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 3</button>
+            <button onclick="unirseComo(4)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 4</button>
         </div>
-        <p class="text-[11px] text-amber-300 font-bold">Cada familiar abre el link en su celular y elige su número.</p>
+        <p class="text-[11px] text-amber-300 font-bold">Si juegan 2, solo usen el Jugador 1 y Jugador 2 (se reparten 7 y 7).</p>
     </div>
 
     <!-- MODAL DE ELECCIÓN DE LADO -->
@@ -132,8 +132,8 @@
 
     <!-- MARCADOR -->
     <div class="bg-slate-900/90 px-4 py-1.5 flex justify-between items-center text-xs font-black border-b border-white/10 relative z-20 text-white">
-        <div class="text-blue-400">💙 Eq. 1 (J1 & J3): <span id="score-team1" class="text-white text-sm">0</span></div>
-        <div class="text-rose-400">❤️ Eq. 2 (J2 & J4): <span id="score-team2" class="text-white text-sm">0</span></div>
+        <div class="text-blue-400">💙 Jugador 1: <span id="score-team1" class="text-white text-sm">0</span></div>
+        <div class="text-rose-400">❤️ Jugador 2: <span id="score-team2" class="text-white text-sm">0</span></div>
     </div>
 
     <!-- CHAT FLOTANTE -->
@@ -224,16 +224,17 @@
 
         function iniciarNuevaPartidaNube() {
             const pool = generarFichasBarajadas();
+            // REPARTO EXACTO: 7 fichas para cada uno (Jugador 1 y Jugador 2)
             const nuevoEstado = {
                 turn: 1,
                 board: [],
                 hands: {
                     1: pool.splice(0, 7),
                     2: pool.splice(0, 7),
-                    3: pool.splice(0, 7),
-                    4: pool.splice(0, 7)
+                    3: [],
+                    4: []
                 },
-                pozo: pool,
+                pozo: pool, // Las 14 fichas restantes quedan en el pozo
                 scores: { team1: 0, team2: 0 }
             };
             db.ref('partida').set(nuevoEstado);
@@ -300,7 +301,6 @@
         }
 
         function colocarEnMesa(index, lado) {
-            // Vibración háptica en el celular al colocar la ficha (Efecto físico real)
             if (navigator.vibrate) {
                 navigator.vibrate(60);
             }
@@ -314,7 +314,6 @@
                 const extremoIzq = gameState.board[0].a;
                 const extremoDer = gameState.board[gameState.board.length - 1].b;
 
-                // Limpiar indicador de animación anterior en la mesa
                 gameState.board.forEach(f => f.justPlaced = false);
 
                 if (lado === 'izquierda') {
@@ -352,15 +351,15 @@
         }
 
         function avanzarTurnoNube() {
-            gameState.turn = gameState.turn >= 4 ? 1 : gameState.turn + 1;
+            // Como son 2 jugadores, el turno alterna solo entre 1 y 2
+            gameState.turn = gameState.turn === 1 ? 2 : 1;
             db.ref('partida').set(gameState);
         }
 
         function verificarVictoriaONube() {
-            for (let i = 1; i <= 4; i++) {
-                if (gameState.hands[i].length === 0) {
-                    const eqGanador = (i === 1 || i === 3) ? 1 : 2;
-                    alert(`🎉 ¡El Jugador ${i} se quedó sin fichas! Gana el Equipo ${eqGanador}`);
+            for (let i = 1; i <= 2; i++) {
+                if (gameState.hands[i] && gameState.hands[i].length === 0) {
+                    alert(`🎉 ¡El Jugador ${i} se quedó sin fichas y gana la ronda!`);
                     iniciarNuevaPartidaNube();
                     return;
                 }
