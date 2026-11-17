@@ -7,7 +7,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <title>Dominó Dominicano Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
@@ -26,7 +25,6 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        /* Mesa con la Bandera Dominicana de fondo */
         .domino-table {
             background: 
                 linear-gradient(90deg, rgba(0, 45, 98, 0.85) 50%, rgba(206, 17, 38, 0.85) 50%),
@@ -51,7 +49,6 @@
             pointer-events: none;
         }
 
-        /* Ficha de dominó realista con animación de impacto */
         .domino-tile {
             background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
             border: 2px solid #475569;
@@ -97,10 +94,8 @@
         <div class="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
             <button onclick="unirseComo(1)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 1</button>
             <button onclick="unirseComo(2)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 2</button>
-            <button onclick="unirseComo(3)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 3</button>
-            <button onclick="unirseComo(4)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 4</button>
         </div>
-        <p class="text-[11px] text-amber-300 font-bold">Si juegan 2, solo usen el Jugador 1 y Jugador 2 (se reparten 7 y 7).</p>
+        <p class="text-[11px] text-amber-300 font-bold">Modo 2 jugadores (7 fichas cada uno + pozo).</p>
     </div>
 
     <!-- MODAL DE ELECCIÓN DE LADO -->
@@ -125,8 +120,9 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-indigo-400">💬 Frases</button>
-            <button onclick="pasarTurnoOnline()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-amber-500">Pasar</button>
+            <button onclick="iniciarNuevaPartidaNube()" class="bg-rose-700 active:scale-95 text-white font-black text-[10px] px-2 py-1.5 rounded-xl shadow border border-rose-400" title="Reiniciar partida">🔄 Reiniciar</button>
+            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-2 py-1.5 rounded-xl shadow border border-indigo-400">💬 Frases</button>
+            <button onclick="pasarTurnoOnline()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-2.5 py-1.5 rounded-xl shadow border border-amber-500">Pasar</button>
         </div>
     </header>
 
@@ -204,7 +200,7 @@
             db.ref('partida').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (!data) {
-                    if (miAsiento === 1) iniciarNuevaPartidaNube();
+                    iniciarNuevaPartidaNube();
                 } else {
                     gameState = data;
                     renderAll();
@@ -224,17 +220,14 @@
 
         function iniciarNuevaPartidaNube() {
             const pool = generarFichasBarajadas();
-            // REPARTO EXACTO: 7 fichas para cada uno (Jugador 1 y Jugador 2)
             const nuevoEstado = {
                 turn: 1,
                 board: [],
                 hands: {
                     1: pool.splice(0, 7),
-                    2: pool.splice(0, 7),
-                    3: [],
-                    4: []
+                    2: pool.splice(0, 7)
                 },
-                pozo: pool, // Las 14 fichas restantes quedan en el pozo
+                pozo: pool,
                 scores: { team1: 0, team2: 0 }
             };
             db.ref('partida').set(nuevoEstado);
@@ -301,9 +294,7 @@
         }
 
         function colocarEnMesa(index, lado) {
-            if (navigator.vibrate) {
-                navigator.vibrate(60);
-            }
+            if (navigator.vibrate) navigator.vibrate(60);
 
             const mano = gameState.hands[miAsiento];
             const ficha = mano[index];
@@ -351,7 +342,6 @@
         }
 
         function avanzarTurnoNube() {
-            // Como son 2 jugadores, el turno alterna solo entre 1 y 2
             gameState.turn = gameState.turn === 1 ? 2 : 1;
             db.ref('partida').set(gameState);
         }
