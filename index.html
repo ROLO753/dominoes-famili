@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Dominó 4 Jugadores con Chat</title>
+    <title>Dominó por Parejas - Familiar</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         * {
@@ -60,31 +60,37 @@
 </head>
 <body class="flex flex-col justify-between domino-table relative">
 
-    <!-- HUD SUPERIOR -->
-    <header class="relative z-20 px-3 pt-3 pb-2 flex items-center justify-between bg-black/50 backdrop-blur-md border-b border-amber-900/40">
+    <!-- HUD SUPERIOR (Marcador por Parejas) -->
+    <header class="relative z-20 px-3 pt-2 pb-2 flex items-center justify-between bg-black/60 backdrop-blur-md border-b border-amber-900/40">
         <div class="flex items-center gap-2">
-            <span class="text-2xl">🎲</span>
+            <span class="text-xl">🎲</span>
             <div>
-                <h1 class="text-xs font-black text-amber-100 tracking-wider">DOMINÓ X4 FAMILIAR</h1>
+                <h1 class="text-[11px] font-black text-amber-100 tracking-wider">DOMINÓ PAREJAS (Meta: 100 pts)</h1>
                 <p id="current-turn-label" class="text-xs font-bold text-amber-300">Turno: Jugador 1</p>
             </div>
         </div>
 
         <div class="flex items-center gap-2">
-            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow border border-indigo-400">
+            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-indigo-400">
                 💬 Frases
             </button>
-            <button onclick="passTurn()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow border border-amber-500">
+            <button onclick="passTurn()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-amber-500">
                 Pasar (<span id="pozo-count">0</span>)
             </button>
         </div>
     </header>
 
-    <!-- VENTANA DE INTERMEDIO (Para pasar el celular sin que los demás vean las fichas) -->
+    <!-- BARRA DE PUNTUACIÓN DE EQUIPOS -->
+    <div class="bg-black/40 px-4 py-1.5 flex justify-between items-center text-xs font-black border-b border-white/10 relative z-20">
+        <div class="text-emerald-400">👥 Equipo 1 (J1 & J3): <span id="score-team1" class="text-white text-sm">0</span> pts</div>
+        <div class="text-rose-400">👥 Equipo 2 (J2 & J4): <span id="score-team2" class="text-white text-sm">0</span> pts</div>
+    </div>
+
+    <!-- VENTANA DE INTERMEDIO (Pasar el celular) -->
     <div id="pass-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-6 text-center">
         <span class="text-6xl mb-3">📱</span>
         <h2 id="pass-title" class="text-2xl font-black text-amber-300 mb-2">¡Pásale el celular al Jugador X!</h2>
-        <p class="text-slate-300 text-sm mb-6">Asegúrate de que nadie más esté mirando la pantalla.</p>
+        <p class="text-slate-300 text-sm mb-6">Asegúrate de que los demás no miren tus fichas.</p>
         <button onclick="revelarMano()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-lg px-8 py-3.5 rounded-full border-4 border-emerald-200 shadow-2xl">
             👁️ YA LO TENGO, VER CARTAS
         </button>
@@ -97,19 +103,18 @@
             <button onclick="toggleChatMenu()" class="text-white font-black text-sm px-2">✕</button>
         </div>
         <div class="grid grid-cols-2 gap-2">
-            <button onclick="enviarFrase('¡Te tranqué! 😈')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Te tranqué! 😈</button>
-            <button onclick="enviarFrase('¡Cuidado que voy! 🔥')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Cuidado que voy! 🔥</button>
-            <button onclick="enviarFrase('¡Ay, mi madre! 😱')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Ay, mi madre! 😱</button>
-            <button onclick="enviarFrase('Juega ya hombre 😂')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">Juega ya hombre 😂</button>
-            <button onclick="enviarFrase('¡Esa ficha la tenía yo! 🙄')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Esa ficha la tenía yo! 🙄</button>
-            <button onclick="enviarFrase('¡Se armó el tranque! 🎲')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2.5 rounded-xl">¡Se armó el tranque! 🎲</button>
+            <button onclick="enviarFrase('¡Te tranqué compañero! 😈')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Te tranqué! 😈</button>
+            <button onclick="enviarFrase('¡Vamos con todo equipo! 🔥')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Vamos equipo! 🔥</button>
+            <button onclick="enviarFrase('¡Ay, mi madre! 😱')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Ay, mi madre! 😱</button>
+            <button onclick="enviarFrase('Juega ya hombre 😂')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">Juega ya 😂</button>
+            <button onclick="enviarFrase('¡Esa ficha la tenía yo! 🙄')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡La tenía yo! 🙄</button>
+            <button onclick="enviarFrase('¡Se armó el tranque! 🎲')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Se trancó! 🎲</button>
         </div>
     </div>
 
     <!-- TABLERO / MESA DE JUEGO -->
     <main class="flex-1 flex flex-col items-center justify-center px-3 relative z-10 overflow-hidden">
         
-        <!-- Burbuja de Chat Activa en Mesa -->
         <div id="chat-bubble-container" class="absolute top-4 z-30 flex justify-center w-full"></div>
 
         <div id="game-message" class="absolute top-12 bg-amber-950/90 border border-amber-600 text-amber-200 font-black text-[11px] px-3.5 py-1 rounded-full shadow-lg z-30">
@@ -117,7 +122,7 @@
         </div>
 
         <div id="board-container" class="w-full h-52 bg-black/40 rounded-3xl border-2 border-amber-950/60 flex items-center justify-center gap-2 overflow-x-auto no-scrollbar px-6 shadow-inner">
-            <span class="text-amber-200/50 text-xs font-black">Mesa vacía. ¡A jugar!</span>
+            <span class="text-amber-200/50 text-xs font-black">Mesa vacía. Inicia la ronda.</span>
         </div>
 
         <div class="mt-3 bg-black/60 backdrop-blur-xs px-4 py-1 rounded-full border border-amber-500/30 text-amber-300 font-black text-xs">
@@ -136,22 +141,23 @@
         </div>
     </footer>
 
-    <!-- MODAL DE VICTORIA -->
+    <!-- MODAL DE FIN DE RONDA / VICTORIA -->
     <div id="win-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-6 text-center">
         <span class="text-6xl mb-3 animate-bounce">🏆</span>
-        <h2 id="win-title" class="text-2xl font-black text-amber-300 mb-2">¡JUGADOR 1 GANA!</h2>
-        <p id="win-desc" class="text-white text-sm mb-6">Se quedó sin fichas.</p>
-        <button onclick="resetGame()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-base px-8 py-3 rounded-full border-4 border-emerald-200 shadow-2xl">
-            🔄 NUEVA PARTIDA
+        <h2 id="win-title" class="text-2xl font-black text-amber-300 mb-2">¡FIN DE LA RONDA!</h2>
+        <p id="win-desc" class="text-white text-sm mb-6">Resultado de los equipos.</p>
+        <button onclick="siguienteRonda()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-base px-8 py-3 rounded-full border-4 border-emerald-200 shadow-2xl">
+            ➡️ SIGUIENTE RONDA
         </button>
     </div>
 
     <script>
         let gameState = {
-            turn: 1, // 1, 2, 3 o 4
+            turn: 1,
             board: [],
             hands: { 1: [], 2: [], 3: [], 4: [] },
             pozo: [],
+            scores: { team1: 0, team2: 0 }, // Equipo 1 (1 y 3), Equipo 2 (2 y 4)
             gameOver: false
         };
 
@@ -219,7 +225,7 @@
             if (gameState.board.length === 0) {
                 gameState.board.push(ficha);
                 mano.splice(index, 1);
-                verificarVictoria();
+                verificarFinDeRonda();
                 if (!gameState.gameOver) avanzarTurno();
                 return;
             }
@@ -246,7 +252,7 @@
 
             if (jugadaValida) {
                 mano.splice(index, 1);
-                verificarVictoria();
+                verificarFinDeRonda();
                 if (!gameState.gameOver) avanzarTurno();
             } else {
                 avisar("⚠️ Esa ficha no coincide con los extremos.");
@@ -270,20 +276,84 @@
             mostrarPantallaEspera(gameState.turn);
         }
 
-        function verificarVictoria() {
+        function calcularPuntosMano(jugador) {
+            return gameState.hands[jugador].reduce((sum, f) => sum + f.a + f.b, 0);
+        }
+
+        function verificarFinDeRonda() {
+            // 1. Revisar si algún jugador se quedó sin fichas
             for (let i = 1; i <= 4; i++) {
                 if (gameState.hands[i].length === 0) {
-                    terminarPartida(i);
+                    const equipoGanador = (i === 1 || i === 3) ? 1 : 2;
+                    // Sumar los puntos de las fichas de los otros dos jugadores contrarios o todos
+                    let puntosRonda = 0;
+                    for (let j = 1; j <= 4; j++) {
+                        puntosRonda += calcularPuntosMano(j);
+                    }
+                    sumarPuntosEquipo(equipoGanador, puntosRonda, `¡Jugador ${i} se quedó sin fichas! Equipo ${equipoGanador} gana ${puntosRonda} pts.`);
                     return;
+                }
+            }
+
+            // 2. Revisar si el juego está trancado (nadie tiene fichas para jugar y el pozo está vacío)
+            if (gameState.pozo.length === 0 && chequearTranqueTotal()) {
+                // Gana el equipo con menos puntos en sus manos restantes
+                const p1 = calcularPuntosMano(1) + calcularPuntosMano(3);
+                const p2 = calcularPuntosMano(2) + calcularPuntosMano(4);
+                
+                if (p1 < p2) {
+                    const diff = p2 - p1;
+                    sumarPuntosEquipo(1, diff, `¡Se trancó el juego! Equipo 1 gana por menos puntos (+${diff} pts).`);
+                } else if (p2 < p1) {
+                    const diff = p1 - p2;
+                    sumarPuntosEquipo(2, diff, `¡Se trancó el juego! Equipo 2 gana por menos puntos (+${diff} pts).`);
+                } else {
+                    terminarRonda("¡Empate exacto! Nadie suma puntos.");
                 }
             }
         }
 
-        function terminarPartida(jugador) {
+        function chequearTranqueTotal() {
+            const izq = gameState.board[0].a;
+            const der = gameState.board[gameState.board.length - 1].b;
+            
+            for (let i = 1; i <= 4; i++) {
+                const puedeJugar = gameState.hands[i].some(f => f.a === izq || f.b === izq || f.a === der || f.b === der);
+                if (puedeJugar) return false;
+            }
+            return true;
+        }
+
+        function sumarPuntosEquipo(equipo, puntos, mensaje) {
             gameState.gameOver = true;
-            document.getElementById('win-title').innerText = `¡JUGADOR ${jugador} GANA!`;
-            document.getElementById('win-desc').innerText = `Se quedó sin fichas en la mano.`;
+            if (equipo === 1) gameState.scores.team1 += puntos;
+            else gameState.scores.team2 += puntos;
+
+            let tituloFinal = mensaje;
+            if (gameState.scores.team1 >= 100) {
+                tituloFinal = "🏆 ¡EQUIPO 1 GANA LA PARTIDA (100+ Pts)!";
+            } else if (gameState.scores.team2 >= 100) {
+                tituloFinal = "🏆 ¡EQUIPO 2 GANA LA PARTIDA (100+ Pts)!";
+            }
+
+            document.getElementById('win-title').innerText = tituloFinal;
+            document.getElementById('win-desc').innerText = `Puntaje total - Equipo 1: ${gameState.scores.team1} | Equipo 2: ${gameState.scores.team2}`;
             document.getElementById('win-modal').classList.remove('hidden');
+        }
+
+        function terminarRonda(mensaje) {
+            gameState.gameOver = true;
+            document.getElementById('win-title').innerText = mensaje;
+            document.getElementById('win-desc').innerText = `Puntaje total - Equipo 1: ${gameState.scores.team1} | Equipo 2: ${gameState.scores.team2}`;
+            document.getElementById('win-modal').classList.remove('hidden');
+        }
+
+        function siguienteRonda() {
+            if (gameState.scores.team1 >= 100 || gameState.scores.team2 >= 100) {
+                gameState.scores.team1 = 0;
+                gameState.scores.team2 = 0;
+            }
+            iniciarJuego();
         }
 
         function toggleChatMenu() {
@@ -342,18 +412,17 @@
                 `;
             });
 
-            document.getElementById('player-name-label').innerText = `Tus Fichas (Jugador ${gameState.turn})`;
-            document.getElementById('current-turn-label').innerText = `Turno: Jugador ${gameState.turn}`;
+            const equipoActual = (gameState.turn === 1 || gameState.turn === 3) ? "Equipo 1" : "Equipo 2";
+            document.getElementById('player-name-label').innerText = `Tus Fichas (Jugador ${gameState.turn} - ${equipoActual})`;
+            document.getElementById('current-turn-label').innerText = `Turno: Jugador ${gameState.turn} (${equipoActual})`;
             document.getElementById('pozo-count').innerText = gameState.pozo.length;
+            document.getElementById('score-team1').innerText = gameState.scores.team1;
+            document.getElementById('score-team2').innerText = gameState.scores.team2;
         }
 
         function renderAll() {
             renderBoard();
             renderHand();
-        }
-
-        function resetGame() {
-            iniciarJuego();
         }
 
         iniciarJuego();
