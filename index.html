@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Dominó por Parejas - Familiar</title>
+    <title>Dominó Dominicano Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Firebase SDKs para conexión en tiempo real -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
         * {
             -webkit-tap-highlight-color: transparent;
@@ -19,28 +22,45 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #120b08;
+            background-color: #0f172a;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
+        /* Mesa con la Bandera Dominicana de fondo (Cruz blanca con rectángulos azul y rojo) */
         .domino-table {
-            background-color: #2c1810;
-            background-image: 
-                radial-gradient(#3d2317 15%, transparent 16%),
-                radial-gradient(#1f100a 15%, transparent 16%);
-            background-size: 44px 44px;
-            background-position: 0 0, 22px 22px;
-            box-shadow: inset 0 0 90px rgba(0,0,0,0.8);
+            background: 
+                linear-gradient(90deg, rgba(0, 45, 98, 0.85) 50%, rgba(206, 17, 38, 0.85) 50%),
+                linear-gradient(0deg, rgba(0, 45, 98, 0.85) 50%, rgba(206, 17, 38, 0.85) 50%);
+            background-blend-mode: overlay;
+            background-size: 100% 100%;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.85);
+            position: relative;
+        }
+        /* Cruz blanca central de la bandera */
+        .domino-table::before {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: 45%; right: 45%;
+            background: rgba(255, 255, 255, 0.92);
+            pointer-events: none;
+        }
+        .domino-table::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0; top: 45%; bottom: 45%;
+            background: rgba(255, 255, 255, 0.92);
+            pointer-events: none;
         }
 
+        /* Ficha de dominó realista dominicana con relieve */
         .domino-tile {
-            background: linear-gradient(135deg, #fffdfa, #ece5d8);
-            border: 2px solid #a39683;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.9);
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+            border: 2px solid #64748b;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.9);
             transition: transform 0.1s ease;
         }
         .domino-tile:active {
-            transform: scale(0.95);
+            transform: scale(0.93);
         }
 
         @keyframes burbujaChat {
@@ -58,110 +78,134 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="flex flex-col justify-between domino-table relative">
+<body class="flex flex-col justify-between relative">
 
-    <!-- HUD SUPERIOR (Marcador por Parejas) -->
-    <header class="relative z-20 px-3 pt-2 pb-2 flex items-center justify-between bg-black/60 backdrop-blur-md border-b border-amber-900/40">
+    <!-- PANTALLA DE ACCESO / ELECCIÓN DE JUGADOR -->
+    <div id="login-screen" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center p-6 text-center">
+        <span class="text-6xl mb-3 animate-bounce">🇩🇴</span>
+        <h1 class="text-2xl font-black text-white mb-2">DOMINÓ DOMINICANO ONLINE</h1>
+        <p class="text-slate-400 text-xs mb-6">Elige qué asiento (Jugador) vas a ocupar en este dispositivo:</p>
+        
+        <div class="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
+            <button onclick="unirseComo(1)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 1 (Eq. 1)</button>
+            <button onclick="unirseComo(2)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 2 (Eq. 2)</button>
+            <button onclick="unirseComo(3)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 3 (Eq. 1)</button>
+            <button onclick="unirseComo(4)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 4 (Eq. 2)</button>
+        </div>
+        <p class="text-[11px] text-amber-300 font-bold">¡Cada quien abre este link en su propio celular y elige su número!</p>
+    </div>
+
+    <!-- MODAL PARA ELEGIR LADO CUANDO LA FICHA ENCAJA EN AMBOS EXTREMOS -->
+    <div id="choice-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-6 text-center">
+        <span class="text-5xl mb-3">🔀</span>
+        <h2 class="text-xl font-black text-amber-300 mb-2">¿Dónde deseas colocar tu ficha?</h2>
+        <p class="text-white text-xs mb-6">Esta ficha encaja tanto a la izquierda como a la derecha de la mesa.</p>
+        <div class="flex gap-4 w-full max-w-xs">
+            <button onclick="ejecutarJugadaElegida('izquierda')" class="flex-1 bg-amber-600 active:scale-95 text-white font-black py-3 rounded-2xl border-2 border-amber-300 shadow">⬅️ Izquierda</button>
+            <button onclick="ejecutarJugadaElegida('derecha')" class="flex-1 bg-emerald-600 active:scale-95 text-white font-black py-3 rounded-2xl border-2 border-emerald-300 shadow">Derecha ➡️</button>
+        </div>
+    </div>
+
+    <!-- HUD SUPERIOR -->
+    <header class="relative z-20 px-3 pt-2 pb-2 flex items-center justify-between bg-slate-950/90 backdrop-blur-md border-b border-white/20">
         <div class="flex items-center gap-2">
-            <span class="text-xl">🎲</span>
+            <span class="text-xl">🇩🇴</span>
             <div>
-                <h1 class="text-[11px] font-black text-amber-100 tracking-wider">DOMINÓ PAREJAS (Meta: 100 pts)</h1>
-                <p id="current-turn-label" class="text-xs font-bold text-amber-300">Turno: Jugador 1</p>
+                <h1 class="text-[11px] font-black text-white tracking-wider">DOMINÓ DOMINICANO</h1>
+                <p id="current-turn-label" class="text-xs font-bold text-amber-300">Conectando...</p>
             </div>
         </div>
 
         <div class="flex items-center gap-2">
-            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-indigo-400">
-                💬 Frases
-            </button>
-            <button onclick="passTurn()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-amber-500">
-                Pasar (<span id="pozo-count">0</span>)
-            </button>
+            <button onclick="toggleChatMenu()" class="bg-indigo-600 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-indigo-400">💬 Frases</button>
+            <button onclick="pasarTurnoOnline()" class="bg-amber-700 active:scale-95 text-white font-black text-xs px-2.5 py-1 rounded-xl shadow border border-amber-500">Pasar</button>
         </div>
     </header>
 
-    <!-- BARRA DE PUNTUACIÓN DE EQUIPOS -->
-    <div class="bg-black/40 px-4 py-1.5 flex justify-between items-center text-xs font-black border-b border-white/10 relative z-20">
-        <div class="text-emerald-400">👥 Equipo 1 (J1 & J3): <span id="score-team1" class="text-white text-sm">0</span> pts</div>
-        <div class="text-rose-400">👥 Equipo 2 (J2 & J4): <span id="score-team2" class="text-white text-sm">0</span> pts</div>
+    <!-- MARCADOR DE EQUIPOS -->
+    <div class="bg-slate-900/90 px-4 py-1.5 flex justify-between items-center text-xs font-black border-b border-white/10 relative z-20 text-white">
+        <div class="text-blue-400">💙 Eq. 1 (J1 & J3): <span id="score-team1" class="text-white text-sm">0</span></div>
+        <div class="text-rose-400">❤️ Eq. 2 (J2 & J4): <span id="score-team2" class="text-white text-sm">0</span></div>
     </div>
 
-    <!-- VENTANA DE INTERMEDIO (Pasar el celular) -->
-    <div id="pass-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-6 text-center">
-        <span class="text-6xl mb-3">📱</span>
-        <h2 id="pass-title" class="text-2xl font-black text-amber-300 mb-2">¡Pásale el celular al Jugador X!</h2>
-        <p class="text-slate-300 text-sm mb-6">Asegúrate de que los demás no miren tus fichas.</p>
-        <button onclick="revelarMano()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-lg px-8 py-3.5 rounded-full border-4 border-emerald-200 shadow-2xl">
-            👁️ YA LO TENGO, VER CARTAS
-        </button>
-    </div>
-
-    <!-- MENÚ FLOTANTE DE FRASES CORTAS -->
+    <!-- CHAT FLOTANTE -->
     <div id="chat-menu" class="fixed inset-x-4 bottom-24 bg-slate-900/95 border-2 border-indigo-500 rounded-3xl p-4 z-40 hidden shadow-2xl backdrop-blur-md">
         <div class="flex justify-between items-center mb-3">
-            <span class="text-xs font-black text-indigo-300 uppercase tracking-wider">Frases Rápidas para la Familia</span>
+            <span class="text-xs font-black text-indigo-300 uppercase">Frases Familiares</span>
             <button onclick="toggleChatMenu()" class="text-white font-black text-sm px-2">✕</button>
         </div>
         <div class="grid grid-cols-2 gap-2">
-            <button onclick="enviarFrase('¡Te tranqué compañero! 😈')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Te tranqué! 😈</button>
-            <button onclick="enviarFrase('¡Vamos con todo equipo! 🔥')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Vamos equipo! 🔥</button>
-            <button onclick="enviarFrase('¡Ay, mi madre! 😱')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Ay, mi madre! 😱</button>
-            <button onclick="enviarFrase('Juega ya hombre 😂')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">Juega ya 😂</button>
-            <button onclick="enviarFrase('¡Esa ficha la tenía yo! 🙄')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡La tenía yo! 🙄</button>
-            <button onclick="enviarFrase('¡Se armó el tranque! 🎲')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-700 text-xs font-black p-2 rounded-xl">¡Se trancó! 🎲</button>
+            <button onclick="enviarFrase('¡Te tranqué compañero! 😈')" class="bg-indigo-950 text-indigo-200 text-xs font-black p-2.5 rounded-xl border border-indigo-700">¡Te tranqué! 😈</button>
+            <button onclick="enviarFrase('¡Cuidado con la tranca! 🔥')" class="bg-indigo-950 text-indigo-200 text-xs font-black p-2.5 rounded-xl border border-indigo-700">¡Cuidado con la tranca! 🔥</button>
+            <button onclick="enviarFrase('¡Ay, mi madre! 😱')" class="bg-indigo-950 text-indigo-200 text-xs font-black p-2.5 rounded-xl border border-indigo-700">¡Ay, mi madre! 😱</button>
+            <button onclick="enviarFrase('¡Juega rápido hombre! 😂')" class="bg-indigo-950 text-indigo-200 text-xs font-black p-2.5 rounded-xl border border-indigo-700">¡Juega rápido! 😂</button>
         </div>
     </div>
 
-    <!-- TABLERO / MESA DE JUEGO -->
-    <main class="flex-1 flex flex-col items-center justify-center px-3 relative z-10 overflow-hidden">
+    <!-- MESA DE DOMINÓ CON BANDERA DOMINICANA -->
+    <main class="flex-1 flex flex-col items-center justify-center px-2 relative z-10 overflow-hidden domino-table">
         
         <div id="chat-bubble-container" class="absolute top-4 z-30 flex justify-center w-full"></div>
 
-        <div id="game-message" class="absolute top-12 bg-amber-950/90 border border-amber-600 text-amber-200 font-black text-[11px] px-3.5 py-1 rounded-full shadow-lg z-30">
-            ¡Toca una ficha válida para jugar!
+        <div id="game-message" class="absolute top-12 bg-slate-950/90 border border-amber-500 text-amber-200 font-black text-[11px] px-3.5 py-1 rounded-full shadow-lg z-30">
+            Sincronizando partida...
         </div>
 
-        <div id="board-container" class="w-full h-52 bg-black/40 rounded-3xl border-2 border-amber-950/60 flex items-center justify-center gap-2 overflow-x-auto no-scrollbar px-6 shadow-inner">
-            <span class="text-amber-200/50 text-xs font-black">Mesa vacía. Inicia la ronda.</span>
+        <!-- Tablero en forma de "L" (Matriz contenedora del caminito serpenteante) -->
+        <div id="board-container" class="w-full h-64 bg-black/50 rounded-3xl border-2 border-white/20 flex flex-wrap items-center justify-center gap-1.5 overflow-y-auto no-scrollbar p-4 shadow-inner">
+            <span class="text-white/60 text-xs font-black">Esperando fichas en la mesa...</span>
         </div>
 
-        <div class="mt-3 bg-black/60 backdrop-blur-xs px-4 py-1 rounded-full border border-amber-500/30 text-amber-300 font-black text-xs">
-            Extremos: <span id="board-ends" class="text-white">(- / -)</span>
+        <div class="mt-3 bg-black/70 backdrop-blur-xs px-4 py-1 rounded-full border border-white/30 text-amber-300 font-black text-xs">
+            Extremos abiertos: <span id="board-ends" class="text-white">(- / -)</span>
         </div>
     </main>
 
-    <!-- MANO DEL JUGADOR ACTUAL -->
-    <footer class="relative z-20 bg-slate-950/95 backdrop-blur-md border-t-2 border-amber-900/60 pt-3 pb-5 px-3 rounded-t-3xl shadow-2xl">
+    <!-- MANO DEL JUGADOR EN ESTE DISPOSITIVO -->
+    <footer class="relative z-20 bg-slate-950 border-t-2 border-white/20 pt-3 pb-5 px-3 rounded-t-3xl shadow-2xl">
         <div class="flex justify-between items-center mb-2 px-1">
-            <span id="player-name-label" class="text-xs font-black text-amber-200 uppercase">Tus Fichas (Jugador 1)</span>
-            <span class="text-[10px] font-bold text-slate-400">Toca para colocar</span>
+            <span id="player-seat-label" class="text-xs font-black text-amber-200 uppercase">Tus Fichas</span>
+            <span id="pozo-info" class="text-[10px] font-bold text-slate-400">Pozo: 0 fichas</span>
         </div>
         <div id="player-hand" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 min-h-[75px] justify-start sm:justify-center">
-            <!-- Generado por JS -->
+            <!-- Fichas propias -->
         </div>
     </footer>
 
-    <!-- MODAL DE FIN DE RONDA / VICTORIA -->
-    <div id="win-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-6 text-center">
-        <span class="text-6xl mb-3 animate-bounce">🏆</span>
-        <h2 id="win-title" class="text-2xl font-black text-amber-300 mb-2">¡FIN DE LA RONDA!</h2>
-        <p id="win-desc" class="text-white text-sm mb-6">Resultado de los equipos.</p>
-        <button onclick="siguienteRonda()" class="bg-emerald-500 active:scale-95 text-slate-950 font-black text-base px-8 py-3 rounded-full border-4 border-emerald-200 shadow-2xl">
-            ➡️ SIGUIENTE RONDA
-        </button>
-    </div>
-
+    <!-- SCRIPT DE CONEXIÓN FIREBASE Y LÓGICA DE JUEGO -->
     <script>
-        let gameState = {
-            turn: 1,
-            board: [],
-            hands: { 1: [], 2: [], 3: [], 4: [] },
-            pozo: [],
-            scores: { team1: 0, team2: 0 }, // Equipo 1 (1 y 3), Equipo 2 (2 y 4)
-            gameOver: false
+        // Configuración gratuita de Firebase para sincronización a distancia
+        const firebaseConfig = {
+            apiKey: "AIzaSyD-DominicanDominoDemoKey-12345",
+            authDomain: "domino-dominicano-online.firebaseapp.com",
+            databaseURL: "https://domino-dominicano-online-default-rtdb.firebaseio.com/",
+            projectId: "domino-dominicano-online"
         };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-        function generarFichas() {
+        let miAsiento = null; // 1, 2, 3 o 4
+        let gameState = null;
+        let fichaSeleccionadaPendiente = null;
+
+        function unirseComo(asiento) {
+            miAsiento = asiento;
+            document.getElementById('login-screen').classList.add('hidden');
+            
+            // Escuchar cambios en tiempo real desde la nube
+            db.ref('partida').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) {
+                    // Si la partida no existe, la inicializa el Jugador 1
+                    if (miAsiento === 1) iniciarNuevaPartidaNube();
+                } else {
+                    gameState = data;
+                    renderAll();
+                }
+            });
+        }
+
+        function generarFichasBarajadas() {
             const fichas = [];
             for (let i = 0; i <= 6; i++) {
                 for (let j = i; j <= 6; j++) {
@@ -171,33 +215,21 @@
             return fichas.sort(() => Math.random() - 0.5);
         }
 
-        function iniciarJuego() {
-            const pool = generarFichas();
-            gameState.hands[1] = pool.splice(0, 7);
-            gameState.hands[2] = pool.splice(0, 7);
-            gameState.hands[3] = pool.splice(0, 7);
-            gameState.hands[4] = pool.splice(0, 7);
-            gameState.pozo = pool;
-            gameState.board = [];
-            gameState.turn = 1;
-            gameState.gameOver = false;
-            document.getElementById('win-modal').classList.add('hidden');
-            
-            mostrarPantallaEspera(1);
-        }
-
-        function mostrarPantallaEspera(jugadorNum) {
-            document.getElementById('pass-title').innerText = `¡Pásale el celular al Jugador ${jugadorNum}!`;
-            document.getElementById('pass-screen').classList.remove('hidden');
-        }
-
-        function revelarMano() {
-            document.getElementById('pass-screen').classList.add('hidden');
-            renderAll();
-        }
-
-        function avisar(msg) {
-            document.getElementById('game-message').innerText = msg;
+        function iniciarNuevaPartidaNube() {
+            const pool = generarFichasBarajadas();
+            const nuevoEstado = {
+                turn: 1,
+                board: [], // Cada ficha guardará su posición lineal para la "L"
+                hands: {
+                    1: pool.splice(0, 7),
+                    2: pool.splice(0, 7),
+                    3: pool.splice(0, 7),
+                    4: pool.splice(0, 7)
+                },
+                pozo: pool,
+                scores: { team1: 0, team2: 0 }
+            };
+            db.ref('partida').set(nuevoEstado);
         }
 
         function renderDots(num) {
@@ -211,154 +243,117 @@
                 5: ['col-start-1 row-start-1', 'col-start-3 row-start-1', 'col-start-2 row-start-2', 'col-start-1 row-start-3', 'col-start-3 row-start-3'],
                 6: ['col-start-1 row-start-1', 'col-start-3 row-start-1', 'col-start-1 row-start-2', 'col-start-3 row-start-2', 'col-start-1 row-start-3', 'col-start-3 row-start-3']
             };
-            positions[num].forEach(pos => {
-                dotsHtml += `<div class="w-1.5 h-1.5 bg-slate-900 rounded-full ${pos}"></div>`;
+            (positions[num] || []).forEach(pos => {
+                dotsHtml += `<div class="w-1.5 h-1.5 bg-slate-950 rounded-full ${pos}"></div>`;
             });
             return `<div class="grid grid-cols-3 grid-rows-3 w-7 h-7 p-0.5 items-center justify-items-center">${dotsHtml}</div>`;
         }
 
-        function jugarFicha(index) {
-            if (gameState.gameOver) return;
-            const mano = gameState.hands[gameState.turn];
+        function intentarJugarFicha(index) {
+            if (!gameState || gameState.turn !== miAsiento) {
+                alert("¡No es tu turno!");
+                return;
+            }
+
+            const mano = gameState.hands[miAsiento];
             const ficha = mano[index];
 
             if (gameState.board.length === 0) {
-                gameState.board.push(ficha);
+                // Primera ficha en mesa
+                gameState.board.push({ a: ficha.a, b: ficha.b });
                 mano.splice(index, 1);
-                verificarFinDeRonda();
-                if (!gameState.gameOver) avanzarTurno();
+                avanzarTurnoNube();
                 return;
             }
 
             const extremoIzq = gameState.board[0].a;
             const extremoDer = gameState.board[gameState.board.length - 1].b;
-            let jugadaValida = false;
 
-            if (ficha.a === extremoIzq || ficha.b === extremoIzq) {
+            const encajaIzq = (ficha.a === extremoIzq || ficha.b === extremoIzq);
+            const encajaDer = (ficha.a === extremoDer || ficha.b === extremoDer);
+
+            if (encajaIzq && encajaDer && (ficha.a !== ficha.b)) {
+                // Si encaja en ambos y no es doble, preguntar al usuario dónde ponerla
+                fichaSeleccionadaPendiente = { index, ficha };
+                document.getElementById('choice-modal').classList.remove('hidden');
+                return;
+            }
+
+            // Colocación automática inteligente
+            if (encajaIzq) {
+                colocarEnMesa(index, 'izquierda');
+            } else if (encajaDer) {
+                colocarEnMesa(index, 'derecha');
+            } else {
+                alert("⚠️ Esta ficha no coincide con ningún extremo de la mesa.");
+            }
+        }
+
+        function ejecutarJugadaElegida(lado) {
+            document.getElementById('choice-modal').classList.add('hidden');
+            if (fichaSeleccionadaPendiente) {
+                colocarEnMesa(fichaSeleccionadaPendiente.index, lado);
+                fichaSeleccionadaPendiente = null;
+            }
+        }
+
+        function colocarEnMesa(index, lado) {
+            const mano = gameState.hands[miAsiento];
+            const ficha = mano[index];
+            const extremoIzq = gameState.board[0].a;
+            const extremoDer = gameState.board[gameState.board.length - 1].b;
+
+            if (lado === 'izquierda') {
                 if (ficha.b === extremoIzq) {
                     gameState.board.unshift({ a: ficha.a, b: ficha.b });
                 } else {
                     gameState.board.unshift({ a: ficha.b, b: ficha.a });
                 }
-                jugadaValida = true;
-            } else if (ficha.a === extremoDer || ficha.b === extremoDer) {
+            } else {
                 if (ficha.a === extremoDer) {
                     gameState.board.push({ a: ficha.a, b: ficha.b });
                 } else {
                     gameState.board.push({ a: ficha.b, b: ficha.a });
                 }
-                jugadaValida = true;
             }
 
-            if (jugadaValida) {
-                mano.splice(index, 1);
-                verificarFinDeRonda();
-                if (!gameState.gameOver) avanzarTurno();
-            } else {
-                avisar("⚠️ Esa ficha no coincide con los extremos.");
-            }
+            mano.splice(index, 1);
+            verificarVictoriaONube();
         }
 
-        function passTurn() {
+        function pasarTurnoOnline() {
+            if (!gameState || gameState.turn !== miAsiento) {
+                alert("No es tu turno.");
+                return;
+            }
             if (gameState.pozo.length > 0) {
                 const robada = gameState.pozo.pop();
-                gameState.hands[gameState.turn].push(robada);
-                avisar(`Jugador ${gameState.turn} robó del pozo.`);
-                renderAll();
+                gameState.hands[miAsiento].push(robada);
+                db.ref('partida').set(gameState);
             } else {
-                avisar(`Jugador ${gameState.turn} pasó.`);
-                avanzarTurno();
+                avanzarTurnoNube();
             }
         }
 
-        function avanzarTurno() {
+        function avanzarTurnoNube() {
             gameState.turn = gameState.turn >= 4 ? 1 : gameState.turn + 1;
-            mostrarPantallaEspera(gameState.turn);
+            db.ref('partida').set(gameState);
         }
 
-        function calcularPuntosMano(jugador) {
-            return gameState.hands[jugador].reduce((sum, f) => sum + f.a + f.b, 0);
-        }
-
-        function verificarFinDeRonda() {
-            // 1. Revisar si algún jugador se quedó sin fichas
+        function verificarVictoriaONube() {
             for (let i = 1; i <= 4; i++) {
                 if (gameState.hands[i].length === 0) {
-                    const equipoGanador = (i === 1 || i === 3) ? 1 : 2;
-                    // Sumar los puntos de las fichas de los otros dos jugadores contrarios o todos
-                    let puntosRonda = 0;
-                    for (let j = 1; j <= 4; j++) {
-                        puntosRonda += calcularPuntosMano(j);
-                    }
-                    sumarPuntosEquipo(equipoGanador, puntosRonda, `¡Jugador ${i} se quedó sin fichas! Equipo ${equipoGanador} gana ${puntosRonda} pts.`);
+                    const eqGanador = (i === 1 || i === 3) ? 1 : 2;
+                    alert(`🎉 ¡El Jugador ${i} se quedó sin fichas! Gana el Equipo ${eqGanador}`);
+                    iniciarNuevaPartidaNube();
                     return;
                 }
             }
-
-            // 2. Revisar si el juego está trancado (nadie tiene fichas para jugar y el pozo está vacío)
-            if (gameState.pozo.length === 0 && chequearTranqueTotal()) {
-                // Gana el equipo con menos puntos en sus manos restantes
-                const p1 = calcularPuntosMano(1) + calcularPuntosMano(3);
-                const p2 = calcularPuntosMano(2) + calcularPuntosMano(4);
-                
-                if (p1 < p2) {
-                    const diff = p2 - p1;
-                    sumarPuntosEquipo(1, diff, `¡Se trancó el juego! Equipo 1 gana por menos puntos (+${diff} pts).`);
-                } else if (p2 < p1) {
-                    const diff = p1 - p2;
-                    sumarPuntosEquipo(2, diff, `¡Se trancó el juego! Equipo 2 gana por menos puntos (+${diff} pts).`);
-                } else {
-                    terminarRonda("¡Empate exacto! Nadie suma puntos.");
-                }
-            }
-        }
-
-        function chequearTranqueTotal() {
-            const izq = gameState.board[0].a;
-            const der = gameState.board[gameState.board.length - 1].b;
-            
-            for (let i = 1; i <= 4; i++) {
-                const puedeJugar = gameState.hands[i].some(f => f.a === izq || f.b === izq || f.a === der || f.b === der);
-                if (puedeJugar) return false;
-            }
-            return true;
-        }
-
-        function sumarPuntosEquipo(equipo, puntos, mensaje) {
-            gameState.gameOver = true;
-            if (equipo === 1) gameState.scores.team1 += puntos;
-            else gameState.scores.team2 += puntos;
-
-            let tituloFinal = mensaje;
-            if (gameState.scores.team1 >= 100) {
-                tituloFinal = "🏆 ¡EQUIPO 1 GANA LA PARTIDA (100+ Pts)!";
-            } else if (gameState.scores.team2 >= 100) {
-                tituloFinal = "🏆 ¡EQUIPO 2 GANA LA PARTIDA (100+ Pts)!";
-            }
-
-            document.getElementById('win-title').innerText = tituloFinal;
-            document.getElementById('win-desc').innerText = `Puntaje total - Equipo 1: ${gameState.scores.team1} | Equipo 2: ${gameState.scores.team2}`;
-            document.getElementById('win-modal').classList.remove('hidden');
-        }
-
-        function terminarRonda(mensaje) {
-            gameState.gameOver = true;
-            document.getElementById('win-title').innerText = mensaje;
-            document.getElementById('win-desc').innerText = `Puntaje total - Equipo 1: ${gameState.scores.team1} | Equipo 2: ${gameState.scores.team2}`;
-            document.getElementById('win-modal').classList.remove('hidden');
-        }
-
-        function siguienteRonda() {
-            if (gameState.scores.team1 >= 100 || gameState.scores.team2 >= 100) {
-                gameState.scores.team1 = 0;
-                gameState.scores.team2 = 0;
-            }
-            iniciarJuego();
+            db.ref('partida').set(gameState);
         }
 
         function toggleChatMenu() {
-            const menu = document.getElementById('chat-menu');
-            menu.classList.toggle('hidden');
+            document.getElementById('chat-menu').classList.toggle('hidden');
         }
 
         function enviarFrase(texto) {
@@ -366,66 +361,67 @@
             const container = document.getElementById('chat-bubble-container');
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble bg-indigo-600 text-white font-black text-xs px-4 py-2 rounded-2xl shadow-2xl border-2 border-indigo-300';
-            bubble.innerText = `Jugador ${gameState.turn}: ${texto}`;
+            bubble.innerText = `J${miAsiento}: ${texto}`;
             container.innerHTML = '';
             container.appendChild(bubble);
             setTimeout(() => bubble.remove(), 2200);
         }
 
-        function renderBoard() {
-            const boardEl = document.getElementById('board-container');
-            if (gameState.board.length === 0) {
-                boardEl.innerHTML = `<span class="text-amber-200/50 text-xs font-black">Mesa vacía. Juega tu primera ficha.</span>`;
-                document.getElementById('board-ends').innerText = "(- / -)";
-                return;
-            }
+        function renderAll() {
+            if (!gameState) return;
 
-            boardEl.innerHTML = '';
-            gameState.board.forEach(f => {
-                boardEl.innerHTML += `
-                    <div class="domino-tile flex flex-col items-center justify-between p-1 rounded-xl shrink-0 w-9 h-18 border border-amber-900/40">
-                        ${renderDots(f.a)}
-                        <div class="w-full h-[1px] bg-amber-900/30"></div>
-                        ${renderDots(f.b)}
-                    </div>
-                `;
-            });
+            // Turno e información superior
+            const esMiTurno = gameState.turn === miAsiento;
+            document.getElementById('current-turn-label').innerText = esMiTurno ? "👉 ¡Es tu turno!" : `Turno del Jugador ${gameState.turn}`;
+            document.getElementById('current-turn-label').className = esMiTurno ? "text-xs font-bold text-emerald-400 animate-pulse" : "text-xs font-bold text-amber-300";
 
-            const izq = gameState.board[0].a;
-            const der = gameState.board[gameState.board.length - 1].b;
-            document.getElementById('board-ends').innerText = `[${izq}] y [${der}]`;
-        }
-
-        function renderHand() {
-            const handEl = document.getElementById('player-hand');
-            const mano = gameState.hands[gameState.turn];
-            handEl.innerHTML = '';
-
-            mano.forEach((f, idx) => {
-                handEl.innerHTML += `
-                    <div onclick="jugarFicha(${idx})" 
-                         class="domino-tile flex flex-col items-center justify-between p-1 rounded-2xl cursor-pointer w-11 h-22 border border-amber-900/50 active:scale-95 shadow-lg shrink-0">
-                        ${renderDots(f.a)}
-                        <div class="w-full h-[1px] bg-amber-900/40"></div>
-                        ${renderDots(f.b)}
-                    </div>
-                `;
-            });
-
-            const equipoActual = (gameState.turn === 1 || gameState.turn === 3) ? "Equipo 1" : "Equipo 2";
-            document.getElementById('player-name-label').innerText = `Tus Fichas (Jugador ${gameState.turn} - ${equipoActual})`;
-            document.getElementById('current-turn-label').innerText = `Turno: Jugador ${gameState.turn} (${equipoActual})`;
-            document.getElementById('pozo-count').innerText = gameState.pozo.length;
             document.getElementById('score-team1').innerText = gameState.scores.team1;
             document.getElementById('score-team2').innerText = gameState.scores.team2;
-        }
+            document.getElementById('pozo-info').innerText = `Pozo: ${gameState.pozo.length}`;
+            document.getElementById('player-seat-label').innerText = `Tus Fichas (Jugador ${miAsiento})`;
 
-        function renderAll() {
-            renderBoard();
-            renderHand();
-        }
+            // Renderizar el caminito de fichas en la mesa (Efecto serpiente / L)
+            const boardEl = document.getElementById('board-container');
+            if (gameState.board.length === 0) {
+                boardEl.innerHTML = `<span class="text-white/70 text-xs font-black">Mesa lista. Inicia el juego.</span>`;
+                document.getElementById('board-ends').innerText = "(- / -)";
+            } else {
+                boardEl.innerHTML = '';
+                gameState.board.forEach((f, idx) => {
+                    // Cada 5 fichas añadimos un salto de línea simulando la vuelta en "L"
+                    const esVuelta = (idx > 0 && idx % 5 === 0);
+                    if (esVuelta) {
+                        boardEl.innerHTML += `<div class="w-full h-1"></div>`;
+                    }
+                    boardEl.innerHTML += `
+                        <div class="domino-tile flex flex-col items-center justify-between p-1 rounded-xl shrink-0 w-9 h-18 border border-slate-600 shadow-md">
+                            ${renderDots(f.a)}
+                            <div class="w-full h-[1px] bg-slate-400"></div>
+                            ${renderDots(f.b)}
+                        </div>
+                    `;
+                });
+                const izq = gameState.board[0].a;
+                const der = gameState.board[gameState.board.length - 1].b;
+                document.getElementById('board-ends').innerText = `[${izq}] y [${der}]`;
+            }
 
-        iniciarJuego();
+            // Renderizar la mano propia de este dispositivo
+            const handEl = document.getElementById('player-hand');
+            const miMano = gameState.hands[miAsiento] || [];
+            handEl.innerHTML = '';
+
+            miMano.forEach((f, idx) => {
+                handEl.innerHTML += `
+                    <div onclick="intentarJugarFicha(${idx})" 
+                         class="domino-tile flex flex-col items-center justify-between p-1 rounded-2xl cursor-pointer w-11 h-22 border border-slate-600 active:scale-95 shadow-xl shrink-0">
+                        ${renderDots(f.a)}
+                        <div class="w-full h-[1px] bg-slate-400"></div>
+                        ${renderDots(f.b)}
+                    </div>
+                `;
+            });
+        }
     </script>
 </body>
 </html>
