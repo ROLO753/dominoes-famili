@@ -200,10 +200,11 @@
             db.ref('partida').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (!data) {
-                    iniciarNuevaPartidaNube();
+                    if (miAsiento === 1) iniciarNuevaPartidaNube();
                 } else {
                     gameState = data;
                     renderAll();
+                    document.getElementById('game-message').style.display = 'none';
                 }
             });
         }
