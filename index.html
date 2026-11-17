@@ -7,7 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <title>Dominó Dominicano Online</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Firebase SDKs para conexión en tiempo real -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
@@ -26,7 +26,7 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        /* Mesa con la Bandera Dominicana de fondo (Cruz blanca con rectángulos azul y rojo) */
+        /* Mesa con la Bandera Dominicana de fondo */
         .domino-table {
             background: 
                 linear-gradient(90deg, rgba(0, 45, 98, 0.85) 50%, rgba(206, 17, 38, 0.85) 50%),
@@ -36,7 +36,6 @@
             box-shadow: inset 0 0 100px rgba(0,0,0,0.85);
             position: relative;
         }
-        /* Cruz blanca central de la bandera */
         .domino-table::before {
             content: '';
             position: absolute;
@@ -52,15 +51,24 @@
             pointer-events: none;
         }
 
-        /* Ficha de dominó realista dominicana con relieve */
+        /* Ficha de dominó realista con animación de impacto */
         .domino-tile {
-            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
-            border: 2px solid #64748b;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            border: 2px solid #475569;
             box-shadow: 0 6px 12px rgba(0,0,0,0.4), inset 0 1px 3px rgba(255,255,255,0.9);
             transition: transform 0.1s ease;
         }
         .domino-tile:active {
             transform: scale(0.93);
+        }
+
+        @keyframes golpeMesa {
+            0% { transform: scale(1.3) rotate(-5deg); filter: brightness(1.5); }
+            50% { transform: scale(0.95) rotate(3deg); }
+            100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
+        }
+        .tile-placed {
+            animation: golpeMesa 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
         @keyframes burbujaChat {
@@ -80,11 +88,11 @@
 </head>
 <body class="flex flex-col justify-between relative">
 
-    <!-- PANTALLA DE ACCESO / ELECCIÓN DE JUGADOR -->
+    <!-- LOGIN SCREEN -->
     <div id="login-screen" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center p-6 text-center">
         <span class="text-6xl mb-3 animate-bounce">🇩🇴</span>
         <h1 class="text-2xl font-black text-white mb-2">DOMINÓ DOMINICANO ONLINE</h1>
-        <p class="text-slate-400 text-xs mb-6">Elige qué asiento (Jugador) vas a ocupar en este dispositivo:</p>
+        <p class="text-slate-400 text-xs mb-6">Elige tu asiento (Jugador) en este dispositivo:</p>
         
         <div class="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
             <button onclick="unirseComo(1)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 1 (Eq. 1)</button>
@@ -92,10 +100,10 @@
             <button onclick="unirseComo(3)" class="bg-blue-900 border-2 border-blue-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 3 (Eq. 1)</button>
             <button onclick="unirseComo(4)" class="bg-rose-900 border-2 border-rose-400 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95">Jugador 4 (Eq. 2)</button>
         </div>
-        <p class="text-[11px] text-amber-300 font-bold">¡Cada quien abre este link en su propio celular y elige su número!</p>
+        <p class="text-[11px] text-amber-300 font-bold">Cada familiar abre el link en su celular y elige su número.</p>
     </div>
 
-    <!-- MODAL PARA ELEGIR LADO CUANDO LA FICHA ENCAJA EN AMBOS EXTREMOS -->
+    <!-- MODAL DE ELECCIÓN DE LADO -->
     <div id="choice-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex flex-col items-center justify-center p-6 text-center">
         <span class="text-5xl mb-3">🔀</span>
         <h2 class="text-xl font-black text-amber-300 mb-2">¿Dónde deseas colocar tu ficha?</h2>
@@ -122,7 +130,7 @@
         </div>
     </header>
 
-    <!-- MARCADOR DE EQUIPOS -->
+    <!-- MARCADOR -->
     <div class="bg-slate-900/90 px-4 py-1.5 flex justify-between items-center text-xs font-black border-b border-white/10 relative z-20 text-white">
         <div class="text-blue-400">💙 Eq. 1 (J1 & J3): <span id="score-team1" class="text-white text-sm">0</span></div>
         <div class="text-rose-400">❤️ Eq. 2 (J2 & J4): <span id="score-team2" class="text-white text-sm">0</span></div>
@@ -142,7 +150,7 @@
         </div>
     </div>
 
-    <!-- MESA DE DOMINÓ CON BANDERA DOMINICANA -->
+    <!-- MESA -->
     <main class="flex-1 flex flex-col items-center justify-center px-2 relative z-10 overflow-hidden domino-table">
         
         <div id="chat-bubble-container" class="absolute top-4 z-30 flex justify-center w-full"></div>
@@ -151,7 +159,6 @@
             Sincronizando partida...
         </div>
 
-        <!-- Tablero en forma de "L" (Matriz contenedora del caminito serpenteante) -->
         <div id="board-container" class="w-full h-64 bg-black/50 rounded-3xl border-2 border-white/20 flex flex-wrap items-center justify-center gap-1.5 overflow-y-auto no-scrollbar p-4 shadow-inner">
             <span class="text-white/60 text-xs font-black">Esperando fichas en la mesa...</span>
         </div>
@@ -161,30 +168,32 @@
         </div>
     </main>
 
-    <!-- MANO DEL JUGADOR EN ESTE DISPOSITIVO -->
+    <!-- MANO -->
     <footer class="relative z-20 bg-slate-950 border-t-2 border-white/20 pt-3 pb-5 px-3 rounded-t-3xl shadow-2xl">
         <div class="flex justify-between items-center mb-2 px-1">
             <span id="player-seat-label" class="text-xs font-black text-amber-200 uppercase">Tus Fichas</span>
             <span id="pozo-info" class="text-[10px] font-bold text-slate-400">Pozo: 0 fichas</span>
         </div>
         <div id="player-hand" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 min-h-[75px] justify-start sm:justify-center">
-            <!-- Fichas propias -->
         </div>
     </footer>
 
-    <!-- SCRIPT DE CONEXIÓN FIREBASE Y LÓGICA DE JUEGO -->
+    <!-- SCRIPT -->
     <script>
-        // Configuración gratuita de Firebase para sincronización a distancia
         const firebaseConfig = {
-            apiKey: "AIzaSyD-DominicanDominoDemoKey-12345",
-            authDomain: "domino-dominicano-online.firebaseapp.com",
-            databaseURL: "https://domino-dominicano-online-default-rtdb.firebaseio.com/",
-            projectId: "domino-dominicano-online"
+            apiKey: "AIzaSyC3dc6dl7zXvb0lH6irW5vTIDrdBzSduKo",
+            authDomain: "domino-familiar-b8395.firebaseapp.com",
+            databaseURL: "https://domino-familiar-b8395-default-rtdb.firebaseio.com",
+            projectId: "domino-familiar-b8395",
+            storageBucket: "domino-familiar-b8395.firebasestorage.app",
+            messagingSenderId: "651612272321",
+            appId: "1:651612272321:web:bf42ad31bdae94dae70640",
+            measurementId: "G-NJTZ6KMW1P"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let miAsiento = null; // 1, 2, 3 o 4
+        let miAsiento = null; 
         let gameState = null;
         let fichaSeleccionadaPendiente = null;
 
@@ -192,11 +201,9 @@
             miAsiento = asiento;
             document.getElementById('login-screen').classList.add('hidden');
             
-            // Escuchar cambios en tiempo real desde la nube
             db.ref('partida').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (!data) {
-                    // Si la partida no existe, la inicializa el Jugador 1
                     if (miAsiento === 1) iniciarNuevaPartidaNube();
                 } else {
                     gameState = data;
@@ -219,7 +226,7 @@
             const pool = generarFichasBarajadas();
             const nuevoEstado = {
                 turn: 1,
-                board: [], // Cada ficha guardará su posición lineal para la "L"
+                board: [],
                 hands: {
                     1: pool.splice(0, 7),
                     2: pool.splice(0, 7),
@@ -259,10 +266,7 @@
             const ficha = mano[index];
 
             if (gameState.board.length === 0) {
-                // Primera ficha en mesa
-                gameState.board.push({ a: ficha.a, b: ficha.b });
-                mano.splice(index, 1);
-                avanzarTurnoNube();
+                colocarEnMesa(index, 'izquierda');
                 return;
             }
 
@@ -273,13 +277,11 @@
             const encajaDer = (ficha.a === extremoDer || ficha.b === extremoDer);
 
             if (encajaIzq && encajaDer && (ficha.a !== ficha.b)) {
-                // Si encaja en ambos y no es doble, preguntar al usuario dónde ponerla
                 fichaSeleccionadaPendiente = { index, ficha };
                 document.getElementById('choice-modal').classList.remove('hidden');
                 return;
             }
 
-            // Colocación automática inteligente
             if (encajaIzq) {
                 colocarEnMesa(index, 'izquierda');
             } else if (encajaDer) {
@@ -298,22 +300,35 @@
         }
 
         function colocarEnMesa(index, lado) {
+            // Vibración háptica en el celular al colocar la ficha (Efecto físico real)
+            if (navigator.vibrate) {
+                navigator.vibrate(60);
+            }
+
             const mano = gameState.hands[miAsiento];
             const ficha = mano[index];
-            const extremoIzq = gameState.board[0].a;
-            const extremoDer = gameState.board[gameState.board.length - 1].b;
 
-            if (lado === 'izquierda') {
-                if (ficha.b === extremoIzq) {
-                    gameState.board.unshift({ a: ficha.a, b: ficha.b });
-                } else {
-                    gameState.board.unshift({ a: ficha.b, b: ficha.a });
-                }
+            if (gameState.board.length === 0) {
+                gameState.board.push({ a: ficha.a, b: ficha.b, justPlaced: true });
             } else {
-                if (ficha.a === extremoDer) {
-                    gameState.board.push({ a: ficha.a, b: ficha.b });
+                const extremoIzq = gameState.board[0].a;
+                const extremoDer = gameState.board[gameState.board.length - 1].b;
+
+                // Limpiar indicador de animación anterior en la mesa
+                gameState.board.forEach(f => f.justPlaced = false);
+
+                if (lado === 'izquierda') {
+                    if (ficha.b === extremoIzq) {
+                        gameState.board.unshift({ a: ficha.a, b: ficha.b, justPlaced: true });
+                    } else {
+                        gameState.board.unshift({ a: ficha.b, b: ficha.a, justPlaced: true });
+                    }
                 } else {
-                    gameState.board.push({ a: ficha.b, b: ficha.a });
+                    if (ficha.a === extremoDer) {
+                        gameState.board.push({ a: ficha.a, b: ficha.b, justPlaced: true });
+                    } else {
+                        gameState.board.push({ a: ficha.b, b: ficha.a, justPlaced: true });
+                    }
                 }
             }
 
@@ -326,6 +341,7 @@
                 alert("No es tu turno.");
                 return;
             }
+            if (navigator.vibrate) navigator.vibrate(30);
             if (gameState.pozo.length > 0) {
                 const robada = gameState.pozo.pop();
                 gameState.hands[miAsiento].push(robada);
@@ -370,7 +386,6 @@
         function renderAll() {
             if (!gameState) return;
 
-            // Turno e información superior
             const esMiTurno = gameState.turn === miAsiento;
             document.getElementById('current-turn-label').innerText = esMiTurno ? "👉 ¡Es tu turno!" : `Turno del Jugador ${gameState.turn}`;
             document.getElementById('current-turn-label').className = esMiTurno ? "text-xs font-bold text-emerald-400 animate-pulse" : "text-xs font-bold text-amber-300";
@@ -380,7 +395,6 @@
             document.getElementById('pozo-info').innerText = `Pozo: ${gameState.pozo.length}`;
             document.getElementById('player-seat-label').innerText = `Tus Fichas (Jugador ${miAsiento})`;
 
-            // Renderizar el caminito de fichas en la mesa (Efecto serpiente / L)
             const boardEl = document.getElementById('board-container');
             if (gameState.board.length === 0) {
                 boardEl.innerHTML = `<span class="text-white/70 text-xs font-black">Mesa lista. Inicia el juego.</span>`;
@@ -388,13 +402,13 @@
             } else {
                 boardEl.innerHTML = '';
                 gameState.board.forEach((f, idx) => {
-                    // Cada 5 fichas añadimos un salto de línea simulando la vuelta en "L"
                     const esVuelta = (idx > 0 && idx % 5 === 0);
                     if (esVuelta) {
                         boardEl.innerHTML += `<div class="w-full h-1"></div>`;
                     }
+                    const animClase = f.justPlaced ? 'tile-placed border-amber-400 ring-2 ring-amber-400' : 'border-slate-600';
                     boardEl.innerHTML += `
-                        <div class="domino-tile flex flex-col items-center justify-between p-1 rounded-xl shrink-0 w-9 h-18 border border-slate-600 shadow-md">
+                        <div class="domino-tile ${animClase} flex flex-col items-center justify-between p-1 rounded-xl shrink-0 w-9 h-18 shadow-md">
                             ${renderDots(f.a)}
                             <div class="w-full h-[1px] bg-slate-400"></div>
                             ${renderDots(f.b)}
@@ -406,7 +420,6 @@
                 document.getElementById('board-ends').innerText = `[${izq}] y [${der}]`;
             }
 
-            // Renderizar la mano propia de este dispositivo
             const handEl = document.getElementById('player-hand');
             const miMano = gameState.hands[miAsiento] || [];
             handEl.innerHTML = '';
